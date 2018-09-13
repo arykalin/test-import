@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/vault/helper/errutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"log"
 )
 
 func pathIssue(b *backend) *framework.Path {
@@ -331,6 +332,12 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		if role.UseCSRSANs && data.Get("alt_names").(string) != "" {
 			resp.AddWarning("the alt_names field was provided but the role is set with \"use_csr_sans\" set to true")
 		}
+	}
+
+	if role.TPPImport {
+		//TODO: it is just mock, put real vcert here
+		log.Printf("Imporint certificate to TPP url %s\n", role.TPPURL)
+		log.Printf("Certificate to import: %s\n", cb.Certificate)
 	}
 
 	return resp, nil
