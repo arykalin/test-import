@@ -135,4 +135,6 @@
 
 2. Run `make dev_server` to start Vault server
 
-3. Run `make dev` to sign random certificate and import it to the Platform.
+3. Run `make dev` to build and enable plugin.
+
+4. Run `make import` to sign random certificate and import it to the Platform.
