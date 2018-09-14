@@ -42,6 +42,9 @@ import_config_write:
 	vault write $(MOUNT)/roles/$(IMPORT_ROLE) \
 		tpp_import="true"  \
 		tpp_url=$(TPPURL) \
+		tpp_user=$(TPPUSER) \
+		tpp_password=$(TPPPASSWORD) \
+		zone="$(TPPZONE)" \
 		$(ROLE_OPTIONS) \
 		allowed_domains=$(IMPORT_DOMAIN) \
 		allow_subdomains=true

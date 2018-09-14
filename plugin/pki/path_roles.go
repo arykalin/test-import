@@ -766,6 +766,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"zone":         r.Zone,
 		"tpp_password": r.TPPPassword,
 		"tpp_user":     r.TPPUser,
+		"tpp_import":   r.TPPImport,
 	}
 	if r.MaxPathLength != nil {
 		responseData["max_path_length"] = r.MaxPathLength

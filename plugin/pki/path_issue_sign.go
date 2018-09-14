@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	"crypto/tls"
+	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/helper/certutil"
 	"github.com/hashicorp/vault/helper/errutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
+	"net/http"
 )
 
 func pathIssue(b *backend) *framework.Path {
@@ -338,6 +341,26 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		//TODO: it is just mock, put real vcert here
 		log.Printf("Imporint certificate to TPP url %s\n", role.TPPURL)
 		log.Printf("Certificate to import: %s\n", cb.Certificate)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
+		log.Println(cl)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		importReq := &certificate.ImportRequest{
+			// if PolicyDN is empty, it is taken from cfg.Zone
+			ObjectName:      data.Get("common_name").(string),
+			CertificateData: cb.Certificate,
+			PrivateKeyData:  cb.PrivateKey,
+			Password:        "private_key_password",
+			Reconcile:       false,
+		}
+		importResp, err := cl.ImportCertificate(importReq)
+		if err != nil {
+			log.Printf("could not import certificate: %s", err)
+		}
+		pp(importReq)
+		pp(importResp)
 	}
 
 	return resp, nil
