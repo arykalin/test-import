@@ -49,10 +49,10 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 
 }
 
-func pp(a interface{}) {
+func pp(a interface{}) string {
 	b, err := json.MarshalIndent(a, "", "    ")
 	if err != nil {
 		fmt.Println("error:", err)
 	}
-	log.Println(string(b))
+	return fmt.Sprintf(string(b))
 }

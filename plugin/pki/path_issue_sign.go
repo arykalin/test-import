@@ -338,7 +338,6 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 	}
 
 	if role.TPPImport {
-		//TODO: it is just mock, put real vcert here
 		log.Printf("Imporint certificate to TPP url %s\n", role.TPPURL)
 		log.Printf("Certificate to import: %s\n", cb.Certificate)
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -352,15 +351,14 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 			ObjectName:      data.Get("common_name").(string),
 			CertificateData: cb.Certificate,
 			PrivateKeyData:  cb.PrivateKey,
-			Password:        "private_key_password",
+			Password:        "",
 			Reconcile:       false,
 		}
 		importResp, err := cl.ImportCertificate(importReq)
 		if err != nil {
 			log.Printf("could not import certificate: %s", err)
 		}
-		pp(importReq)
-		pp(importResp)
+		log.Printf("Certificate imported:\n %s", pp(importResp))
 	}
 
 	return resp, nil
