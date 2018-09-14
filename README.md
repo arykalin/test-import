@@ -29,26 +29,36 @@
 
 1. Read about Vault plugin system https://www.vaultproject.io/docs/internals/plugins.html
 
-1. Download the plugin binary from releases page
+1. Download the plugin binary from releases page and make it executable
+    ```
+    curl -L -o bin/venafi-pki-import https://github.com/arykalin/test-import/releases/download/0.0.1/venafi-pki-import
+    chmod +x bin/venafi-pki-import
+    ```
 
 1. Configure your Vault to use plugin_directory where you download the plugin. Use vault-config.hcl from this repo as example.
 
-1. Start your Vault.
+1. Start your Vault. If you don't have working configuration you can start it in dev mode:
+    ```
+    echo 'plugin_directory = "bin"' > vault-config.hcl
+    vault server -log-level=debug -dev -config=vault-config.hcl
+    ```
+
+[![demo](https://asciinema.org/a/VQ1f9Xdmftz5FhtX0GP1bblSg.png)](https://asciinema.org/a/VQ1f9Xdmftz5FhtX0GP1bblSg?autoplay=1)
 
 1. Get sha256 checksum of plugin binary:
-`
-shasum -a 256 download_plugin_path/venafi-pki-import
-`
+    `
+    SHA256=$(shasum -a 256 bin/venafi-pki-import | cut -d' ' -f1)
+    `
 
 1. Add plugin to the vault system catalog:
-`
-vault write sys/plugins/catalog/venafi-pki-import sha_256="SHA256 CHECKSUM" command="venafi-pki-import"
-`
+    `
+    vault write sys/plugins/catalog/venafi-pki-import sha_256="${SHA256}" command="venafi-pki-import"
+    `
 
 1. Enable plugin secret backend:
-`
-vault secrets enable -path=pki-import -plugin-name=venafi-pki-import plugin
-`
+    `
+    vault secrets enable -path=venafi-pki-import -plugin-name=venafi-pki-import plugin
+    `
 
 1. Create PKI role (https://www.vaultproject.io/docs/secrets/pki/index.html). You will need to add following Venafi Platform options:
 
@@ -72,6 +82,13 @@ vault secrets enable -path=pki-import -plugin-name=venafi-pki-import plugin
     	allow_subdomains=true
     ```
 
+1. Create PKI CA:
+    ```
+    vault write venafi-pki-import/root/generate/internal \
+            common_name=example.com \
+            ttl=8760h
+    ```
+
 1. Sign certificate and import it using standart PKI command. Example:
 
     ```
@@ -80,7 +97,20 @@ vault secrets enable -path=pki-import -plugin-name=venafi-pki-import plugin
         alt_names="alt1.import.example.com,alt2-hbpxs.import.example.com"
     ```
 
+1. Check the Vault logs, you should see there something like this:
+    ```
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import: 2018/09/14 17:09:12 Certificate imported:
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import:  {
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import:     "CertificateDN": "\\VED\\Policy\\devops\\vcert\\import1.import.example.com",
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import:     "CertificateVaultId": 9120748,
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import:     "Guid": "{cb3dddd5-3546-4958-b91b-e95100a8ff0a}",
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import:     "PrivateKeyVaultId": 9120749
+    2018-09-14T17:09:12.604+0300 [DEBUG] secrets.plugin.plugin_64a9ee0c.venafi-pki-import.venafi-pki-import: }
+    ```
 
+[![demo](https://asciinema.org/a/FrX6zj2MwbYLjop9ceIwUFNVU.png)](https://asciinema.org/a/FrX6zj2MwbYLjop9ceIwUFNVU?autoplay=1)
+
+1. Lookup you certificate on the Venafi Platform
 
 ## Quickstart for developers
 
