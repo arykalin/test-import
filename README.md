@@ -1,5 +1,7 @@
 # Vault PKI backend plugin with import to Venafi Platform
 
+This is the original Hashicorp Vault PKI secrets engine (https://www.vaultproject.io/docs/secrets/pki/index.html) which can import signed certificates to the Venafi Platform.
+
 ## Quickstart
 
 1. Read about Vault plugin system https://www.vaultproject.io/docs/internals/plugins.html
