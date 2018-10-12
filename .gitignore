@@ -1,4 +1,5 @@
 .idea
+bin
 pki_custom
 credentials
 demo.sh

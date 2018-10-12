@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/Venafi/vcert/pkg/certificate"
 	"time"
 
 	"crypto/tls"
-	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/helper/certutil"
 	"github.com/hashicorp/vault/helper/errutil"
@@ -344,21 +344,23 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
 		log.Println(cl)
 		if err != nil {
-			return logical.ErrorResponse(err.Error()), nil
+			log.Printf("Could not create venafi client: %s", err)
+
+		} else {
+			importReq := &certificate.ImportRequest{
+				// if PolicyDN is empty, it is taken from cfg.Zone
+				ObjectName:      data.Get("common_name").(string),
+				CertificateData: cb.Certificate,
+				PrivateKeyData:  cb.PrivateKey,
+				Password:        "",
+				Reconcile:       false,
+			}
+			importResp, err := cl.ImportCertificate(importReq)
+			if err != nil {
+				log.Printf("could not import certificate: %s", err)
+			}
+			log.Printf("Certificate imported:\n %s", pp(importResp))
 		}
-		importReq := &certificate.ImportRequest{
-			// if PolicyDN is empty, it is taken from cfg.Zone
-			ObjectName:      data.Get("common_name").(string),
-			CertificateData: cb.Certificate,
-			PrivateKeyData:  cb.PrivateKey,
-			Password:        "",
-			Reconcile:       false,
-		}
-		importResp, err := cl.ImportCertificate(importReq)
-		if err != nil {
-			log.Printf("could not import certificate: %s", err)
-		}
-		log.Printf("Certificate imported:\n %s", pp(importResp))
 	}
 
 	return resp, nil
