@@ -2,19 +2,20 @@ package pki
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vcert/pkg/certificate"
+	"net/http"
 	"time"
 
-	"crypto/tls"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/helper/certutil"
 	"github.com/hashicorp/vault/helper/errutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
-	"net/http"
 )
 
 func pathIssue(b *backend) *framework.Path {
@@ -338,32 +339,62 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 	}
 
 	if role.TPPImport {
-		log.Printf("Imporint certificate to TPP url %s\n", role.TPPURL)
-		log.Printf("Certificate to import: %s\n", cb.Certificate)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
-		log.Println(cl)
-		if err != nil {
-			log.Printf("Could not create venafi client: %s", err)
+		log.Printf("Puting certificate to the TPP import queue\n. Certificate pem block: %s\n", cb.Certificate)
 
-		} else {
-			importReq := &certificate.ImportRequest{
-				// if PolicyDN is empty, it is taken from cfg.Zone
-				ObjectName:      data.Get("common_name").(string),
-				CertificateData: cb.Certificate,
-				PrivateKeyData:  cb.PrivateKey,
-				Password:        "",
-				Reconcile:       false,
-			}
-			importResp, err := cl.ImportCertificate(importReq)
-			if err != nil {
-				log.Printf("could not import certificate: %s", err)
-			}
-			log.Printf("Certificate imported:\n %s", pp(importResp))
+		err = req.Storage.Put(ctx, &logical.StorageEntry{
+			Key:   "queue/" + data.Get("common_name").(string),
+			Value: []byte(cb.Certificate),
+		})
+		if err != nil {
+			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
+		b.importToTPP(data.Get("common_name").(string), data, ctx, req)
 	}
 
 	return resp, nil
+}
+
+func (b *backend) importToTPP(cn string, data *framework.FieldData, ctx context.Context, req *logical.Request) {
+	//TODO: change InsecureSkipVerify to cetificate bundle option
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
+	log.Println(cl)
+	if err != nil {
+		log.Printf("Could not create venafi client: %s", err)
+	} else {
+		certEntry, err := req.Storage.Get(ctx, "queue/"+cn)
+		if err != nil {
+			log.Printf("Could not get certificate from queue/%s: %s", cn, err)
+		}
+		block := pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certEntry.Value,
+		}
+		certString := string(pem.EncodeToMemory(&block))
+		log.Printf("Importing cert: %s", certString)
+		importReq := &certificate.ImportRequest{
+			// if PolicyDN is empty, it is taken from cfg.Zone
+			ObjectName:      data.Get("common_name").(string),
+			CertificateData: certString,
+			PrivateKeyData:  "",
+			Password:        "",
+			Reconcile:       false,
+		}
+		importResp, err := cl.ImportCertificate(importReq)
+		if err != nil {
+			log.Printf("could not import certificate: %s", err)
+		}
+		log.Printf("Certificate imported:\n %s", pp(importResp))
+	}
+	//Import queue running
+	//go func() {
+	//	for {
+	//		bundleEntry := data.Get("role").(string)
+	//		log.Println("Here will be import queue", bundleEntry)
+	//		time.Sleep(2 * time.Second)
+	//	}
+	//}()
 }
 
 const pathIssueHelpSyn = `

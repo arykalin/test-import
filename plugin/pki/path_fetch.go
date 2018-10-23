@@ -263,6 +263,29 @@ reply:
 	return
 }
 
+// This returns the list of queued for import to TPP certificates
+func pathFetchListQueue(b *backend) *framework.Path {
+	return &framework.Path{
+		Pattern: "queue/?$",
+
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.ListOperation: b.pathFetchQueueList,
+		},
+
+		HelpSynopsis:    pathFetchHelpSyn,
+		HelpDescription: pathFetchHelpDesc,
+	}
+}
+
+func (b *backend) pathFetchQueueList(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
+	entries, err := req.Storage.List(ctx, "queue/")
+	if err != nil {
+		return nil, err
+	}
+
+	return logical.ListResponse(entries), nil
+}
+
 const pathFetchHelpSyn = `
 Fetch a CA, CRL, CA Chain, or non-revoked certificate.
 `
