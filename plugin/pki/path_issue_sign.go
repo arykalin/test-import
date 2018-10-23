@@ -339,22 +339,23 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 	}
 
 	if role.TPPImport {
-		log.Printf("Puting certificate to the TPP import queue\n. Certificate pem block: %s\n", cb.Certificate)
+		sn := normalizeSerial(cb.SerialNumber)
+		log.Printf("Puting certificate with serial number %s to the TPP import queue\n. Certificate pem block: %s\n", sn, cb.Certificate)
 
 		err = req.Storage.Put(ctx, &logical.StorageEntry{
-			Key:   "queue/" + data.Get("common_name").(string),
-			Value: []byte(cb.Certificate),
+			Key:   "queue/" + sn,
+			Value: parsedBundle.CertificateBytes,
 		})
 		if err != nil {
 			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
-		b.importToTPP(data.Get("common_name").(string), data, ctx, req)
+		b.importToTPP(sn, data, ctx, req)
 	}
 
 	return resp, nil
 }
 
-func (b *backend) importToTPP(cn string, data *framework.FieldData, ctx context.Context, req *logical.Request) {
+func (b *backend) importToTPP(sn string, data *framework.FieldData, ctx context.Context, req *logical.Request) {
 	//TODO: change InsecureSkipVerify to cetificate bundle option
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
@@ -363,9 +364,9 @@ func (b *backend) importToTPP(cn string, data *framework.FieldData, ctx context.
 	if err != nil {
 		log.Printf("Could not create venafi client: %s", err)
 	} else {
-		certEntry, err := req.Storage.Get(ctx, "queue/"+cn)
+		certEntry, err := req.Storage.Get(ctx, "queue/"+sn)
 		if err != nil {
-			log.Printf("Could not get certificate from queue/%s: %s", cn, err)
+			log.Printf("Could not get certificate from queue/%s: %s", sn, err)
 		}
 		block := pem.Block{
 			Type:  "CERTIFICATE",
@@ -375,7 +376,7 @@ func (b *backend) importToTPP(cn string, data *framework.FieldData, ctx context.
 		log.Printf("Importing cert: %s", certString)
 		importReq := &certificate.ImportRequest{
 			// if PolicyDN is empty, it is taken from cfg.Zone
-			ObjectName:      data.Get("common_name").(string),
+			ObjectName:      sn,
 			CertificateData: certString,
 			PrivateKeyData:  "",
 			Password:        "",
