@@ -1,3 +1,6 @@
+TEST?=$$(go list ./... |grep -v 'vendor')
+GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
+
 PLUGIN_NAME := venafi-pki-import
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
@@ -9,6 +12,12 @@ ROLE_OPTIONS := generate_lease=true store_by_cn="true" store_pkey="true" store_b
 IMPORT_ROLE := import
 IMPORT_DOMAIN := import.example.com
 RANDOM_SITE_EXP := $$(head /dev/urandom | docker run --rm -i busybox tr -dc a-z0-9 | head -c 5 ; echo '')
+
+fmt:
+	gofmt -w $(GOFMT_FILES)
+
+fmtcheck:
+	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
 #Need to unset VAULT_TOKEN when running vault with dev parameter.
 unset:
