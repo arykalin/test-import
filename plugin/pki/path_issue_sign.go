@@ -349,9 +349,14 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		if err != nil {
 			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
-		//TODO: Importing whole queue may take a long time. We should try to run this task in backround
 		log.Printf("Running certificates import from queue")
-		b.importToTPP(data, ctx, req)
+		//Running import queue in background
+		//TODO: Need to synchronize backrounds task to not dublicate them.
+		ctx = context.Background()
+		go func() {
+			b.importToTPP(data, ctx, req)
+		}()
+
 	}
 
 	log.Printf("Returning sign response")
@@ -414,15 +419,6 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 			}
 		}
 	}
-
-	//Import queue running
-	//go func() {
-	//	for {
-	//		bundleEntry := data.Get("role").(string)
-	//		log.Println("Here will be import queue", bundleEntry)
-	//		time.Sleep(2 * time.Second)
-	//	}
-	//}()
 }
 
 const pathIssueHelpSyn = `

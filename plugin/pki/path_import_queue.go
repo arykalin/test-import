@@ -61,7 +61,12 @@ func (b *backend) pathFetchImportQueueList(ctx context.Context, req *logical.Req
 func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
 	roleName := data.Get("role").(string)
 	log.Printf("Using role: %s", roleName)
-	b.importToTPP(data, ctx, req)
+	//Running import queue in background
+	ctx = context.Background()
+
+	go func() {
+		b.importToTPP(data, ctx, req)
+	}()
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		return nil, err
