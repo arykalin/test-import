@@ -101,7 +101,7 @@ vault read venafi-pki-import/import-queue/<rolename>
 ```
 You can list certificates serial numbers in import queue using command
 ```
-vault list venafi-pki-import/import-queue/<rolename>
+vault list venafi-pki-import/import-queue
 ```
 ## Quickstart for developers
 
