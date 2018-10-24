@@ -39,7 +39,6 @@ func Backend(conf *logical.BackendConfig) *backend {
 				"revoked/",
 				"crl",
 				"certs/",
-				"import-queue/",
 			},
 
 			Root: []string{

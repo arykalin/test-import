@@ -9,7 +9,7 @@ import (
 
 // This returns the list of queued for import to TPP certificates
 func pathImportQueue(b *backend) *framework.Path {
-	return &framework.Path{
+	ret := &framework.Path{
 		Pattern: "import-queue/" + framework.GenericNameRegex("role"),
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -20,6 +20,8 @@ func pathImportQueue(b *backend) *framework.Path {
 		HelpSynopsis:    pathFetchHelpSyn,
 		HelpDescription: pathFetchHelpDesc,
 	}
+	ret.Fields = addNonCACommonFields(map[string]*framework.FieldSchema{})
+	return ret
 }
 
 func (b *backend) pathFetchImportQueueList(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
