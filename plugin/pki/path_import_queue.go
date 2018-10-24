@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
@@ -42,11 +43,15 @@ func (b *backend) pathFetchImportQueueList(ctx context.Context, req *logical.Req
 	if err != nil {
 		return nil, err
 	}
-	for _, e := range roles {
-		log.Printf("Getting entry %s", e)
-		entry, err := req.Storage.List(ctx, "import-queue/"+e)
+	for _, role := range roles {
+		log.Printf("Getting entry %s", role)
+		rawEntry, err := req.Storage.List(ctx, "import-queue/"+role)
 		if err != nil {
 			return nil, err
+		}
+		var entry []string
+		for _, e := range rawEntry {
+			entry = append(entry, fmt.Sprintf("%s: %s", role, e))
 		}
 		entries = append(entries, entry...)
 	}
