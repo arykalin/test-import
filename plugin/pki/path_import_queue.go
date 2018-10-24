@@ -13,8 +13,23 @@ func pathImportQueue(b *backend) *framework.Path {
 		Pattern: "import-queue/" + framework.GenericNameRegex("role"),
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ListOperation: b.pathFetchImportQueueList,
 			logical.ReadOperation: b.pathUpdateImportQueue,
+		},
+
+		HelpSynopsis:    pathFetchHelpSyn,
+		HelpDescription: pathFetchHelpDesc,
+	}
+	ret.Fields = addNonCACommonFields(map[string]*framework.FieldSchema{})
+	return ret
+}
+
+func pathImportQueueList(b *backend) *framework.Path {
+	ret := &framework.Path{
+		Pattern: "import-queue-list/" + framework.GenericNameRegex("role"),
+
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			//TODO: don't know why but ListOperation returning  "No value found at venafi-pki-import/import-queue-list/import/" error
+			logical.ReadOperation: b.pathFetchImportQueueList,
 		},
 
 		HelpSynopsis:    pathFetchHelpSyn,

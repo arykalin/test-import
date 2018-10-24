@@ -74,6 +74,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathFetchValid(&b),
 			pathFetchListCerts(&b),
 			pathImportQueue(&b),
+			pathImportQueueList(&b),
 			pathRevoke(&b),
 			pathTidy(&b),
 		},
