@@ -349,45 +349,69 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		if err != nil {
 			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
-		b.importToTPP(sn, data, ctx, req)
+		b.importToTPP(data, ctx, req)
 	}
 
 	return resp, nil
 }
 
-func (b *backend) importToTPP(sn string, data *framework.FieldData, ctx context.Context, req *logical.Request) {
+func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
 	//TODO: change InsecureSkipVerify to cetificate bundle option
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
-	log.Println(cl)
+	//Make a loop through queue list here, remove sn.
+	entries, err := req.Storage.List(ctx, "queue/")
 	if err != nil {
-		log.Printf("Could not create venafi client: %s", err)
-	} else {
-		certEntry, err := req.Storage.Get(ctx, "queue/"+sn)
-		if err != nil {
-			log.Printf("Could not get certificate from queue/%s: %s", sn, err)
-		}
-		block := pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certEntry.Value,
-		}
-		certString := string(pem.EncodeToMemory(&block))
-		log.Printf("Importing cert: %s", certString)
-		importReq := &certificate.ImportRequest{
-			// if PolicyDN is empty, it is taken from cfg.Zone
-			ObjectName:      sn,
-			CertificateData: certString,
-			PrivateKeyData:  "",
-			Password:        "",
-			Reconcile:       false,
-		}
-		importResp, err := cl.ImportCertificate(importReq)
-		if err != nil {
-			log.Printf("could not import certificate: %s", err)
-		}
-		log.Printf("Certificate imported:\n %s", pp(importResp))
+		log.Printf("Could not get queue list: %s", err)
 	}
+	log.Printf("Queue list is:\n %s", entries)
+	for i, sn := range entries {
+		log.Printf("Trying to import certificate with SN %s at pos %d", sn, i)
+		cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
+		log.Println(cl)
+		if err != nil {
+			log.Printf("Could not create venafi client: %s", err)
+		} else {
+			certEntry, err := req.Storage.Get(ctx, "queue/"+sn)
+			if err != nil {
+				log.Printf("Could not get certificate from queue/%s: %s", sn, err)
+			}
+			block := pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certEntry.Value,
+			}
+			certString := string(pem.EncodeToMemory(&block))
+			log.Printf("Importing cert: %s", certString)
+			importReq := &certificate.ImportRequest{
+				// if PolicyDN is empty, it is taken from cfg.Zone
+				ObjectName:      sn,
+				CertificateData: certString,
+				PrivateKeyData:  "",
+				Password:        "",
+				Reconcile:       false,
+			}
+			importResp, err := cl.ImportCertificate(importReq)
+			if err != nil {
+				log.Printf("could not import certificate: %s", err)
+				continue
+			}
+			log.Printf("Certificate imported:\n %s", pp(importResp))
+			log.Printf("Removing certificate from impoer queue")
+			err = req.Storage.Delete(ctx, "queue/"+sn)
+			if err != nil {
+				log.Printf("Could not delete sn from queue: %s", err)
+			} else {
+				log.Printf("Cedrtificate with SN %s removed from queue", sn)
+				entries, err := req.Storage.List(ctx, "queue/")
+				if err != nil {
+					log.Printf("Could not get queue list: %s", err)
+				} else {
+					log.Printf("Queue is:\n %s", entries)
+				}
+			}
+		}
+	}
+
 	//Import queue running
 	//go func() {
 	//	for {
