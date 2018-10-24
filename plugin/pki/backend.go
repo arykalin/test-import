@@ -39,7 +39,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 				"revoked/",
 				"crl",
 				"certs/",
-				"queue/",
+				"import-queue/",
 			},
 
 			Root: []string{
@@ -74,7 +74,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathFetchCRLViaCertPath(&b),
 			pathFetchValid(&b),
 			pathFetchListCerts(&b),
-			pathFetchListQueue(&b),
+			pathImportQueue(&b),
 			pathRevoke(&b),
 			pathTidy(&b),
 		},

@@ -94,6 +94,15 @@ This is the original Hashicorp Vault PKI secrets engine (https://www.vaultprojec
 
 1. Lookup you certificate on the Venafi Platform
 
+## Import queue
+After certificate is signed it saved to the import queue. Import is running any time you sign certificate, also you can manually start the import using command
+```
+vault write venafi-pki-import/import-queue/<rolename>
+```
+You can list certificates serial numbers in import queue using command
+```
+vault list venafi-pki-import/import-queue/<rolename>
+```
 ## Quickstart for developers
 
 1. Export your Venafi Platform configuration variables
