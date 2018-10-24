@@ -343,15 +343,18 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		log.Printf("Puting certificate with serial number %s to the TPP import queue\n. Certificate pem block: %s\n", sn, cb.Certificate)
 
 		err = req.Storage.Put(ctx, &logical.StorageEntry{
-			Key:   "import-queue/" + sn,
+			Key:   "import-queue/" + data.Get("role").(string) + "/" + sn,
 			Value: parsedBundle.CertificateBytes,
 		})
 		if err != nil {
 			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
+		//TODO: Importing whole queue may take a long time. We should try to run this task in backround
+		log.Printf("Running certificates import from queue")
 		b.importToTPP(data, ctx, req)
 	}
 
+	log.Printf("Returning sign response")
 	return resp, nil
 }
 
@@ -360,7 +363,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	//Make a loop through queue list here, remove sn.
-	entries, err := req.Storage.List(ctx, "import-queue/")
+	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		log.Printf("Could not get queue list: %s", err)
 	}
@@ -372,7 +375,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 		if err != nil {
 			log.Printf("Could not create venafi client: %s", err)
 		} else {
-			certEntry, err := req.Storage.Get(ctx, "import-queue/"+sn)
+			certEntry, err := req.Storage.Get(ctx, "import-queue/"+data.Get("role").(string)+"/"+sn)
 			if err != nil {
 				log.Printf("Could not get certificate from import-queue/%s: %s", sn, err)
 			}
@@ -397,12 +400,12 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 			}
 			log.Printf("Certificate imported:\n %s", pp(importResp))
 			log.Printf("Removing certificate from impoer queue")
-			err = req.Storage.Delete(ctx, "import-queue/"+sn)
+			err = req.Storage.Delete(ctx, "import-queue/"+data.Get("role").(string)+"/"+sn)
 			if err != nil {
 				log.Printf("Could not delete sn from queue: %s", err)
 			} else {
 				log.Printf("Cedrtificate with SN %s removed from queue", sn)
-				entries, err := req.Storage.List(ctx, "import-queue/")
+				entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 				if err != nil {
 					log.Printf("Could not get queue list: %s", err)
 				} else {

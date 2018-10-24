@@ -4,16 +4,17 @@ import (
 	"context"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"log"
 )
 
 // This returns the list of queued for import to TPP certificates
 func pathImportQueue(b *backend) *framework.Path {
 	return &framework.Path{
-		Pattern: "import-queue/?$",
+		Pattern: "import-queue/" + framework.GenericNameRegex("role"),
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ListOperation:   b.pathFetchImportQueueList,
-			logical.UpdateOperation: b.pathUpdateImportQueue,
+			logical.ListOperation: b.pathFetchImportQueueList,
+			logical.ReadOperation: b.pathUpdateImportQueue,
 		},
 
 		HelpSynopsis:    pathFetchHelpSyn,
@@ -22,7 +23,9 @@ func pathImportQueue(b *backend) *framework.Path {
 }
 
 func (b *backend) pathFetchImportQueueList(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
-	entries, err := req.Storage.List(ctx, "import-queue/")
+	roleName := data.Get("role").(string)
+	log.Printf("Using role: %s", roleName)
+	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		return nil, err
 	}
@@ -31,8 +34,10 @@ func (b *backend) pathFetchImportQueueList(ctx context.Context, req *logical.Req
 }
 
 func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
+	roleName := data.Get("role").(string)
+	log.Printf("Using role: %s", roleName)
 	b.importToTPP(data, ctx, req)
-	entries, err := req.Storage.List(ctx, "import-queue/")
+	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		return nil, err
 	}
