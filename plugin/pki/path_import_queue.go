@@ -17,8 +17,8 @@ func pathImportQueue(b *backend) *framework.Path {
 			logical.ReadOperation: b.pathUpdateImportQueue,
 		},
 
-		HelpSynopsis:    pathFetchHelpSyn,
-		HelpDescription: pathFetchHelpDesc,
+		HelpSynopsis:    pathImportQueueSyn,
+		HelpDescription: pathImportQueueDesc,
 	}
 	ret.Fields = addNonCACommonFields(map[string]*framework.FieldSchema{})
 	return ret
@@ -31,8 +31,8 @@ func pathImportQueueList(b *backend) *framework.Path {
 			logical.ListOperation: b.pathFetchImportQueueList,
 		},
 
-		HelpSynopsis:    pathFetchHelpSyn,
-		HelpDescription: pathFetchHelpDesc,
+		HelpSynopsis:    pathImportQueueSyn,
+		HelpDescription: pathImportQueueDesc,
 	}
 	return ret
 }
@@ -69,3 +69,15 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 
 	return logical.ListResponse(entries), nil
 }
+
+const pathImportQueueSyn = `
+Fetch a CA, CRL, CA Chain, or non-revoked certificate.
+`
+
+const pathImportQueueDesc = `
+This allows certificates to be fetched. If using the fetch/ prefix any non-revoked certificate can be fetched.
+
+Using "ca" or "crl" as the value fetches the appropriate information in DER encoding. Add "/pem" to either to get PEM encoding.
+
+Using "ca_chain" as the value fetches the certificate authority trust chain in PEM encoding.
+`
