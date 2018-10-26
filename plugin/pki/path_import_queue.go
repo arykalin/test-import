@@ -76,9 +76,6 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 }
 
 func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
-	//TODO: change InsecureSkipVerify to cetificate bundle option
-	//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-
 	//Make a loop through queue list here, remove sn.
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
