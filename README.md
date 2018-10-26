@@ -94,6 +94,23 @@ This is the original Hashicorp Vault PKI secrets engine (https://www.vaultprojec
 
 1. Lookup you certificate on the Venafi Platform
 
+## Import trust chain for the Platform
+
+If Venafi Platform uses an internal (self-signed) certificate, you must get your server root certificate
+using open ssl command below and provide it as an option to the 'trust_bundle_file' parameter. Otherwise, the plugin will fail because of untrusted certificate error.
+Use the following command to import the certificate to the chain.pem file.
+The main.tf file is already configured to use this file as a trust bundle.
+
+```
+echo | openssl s_client -showcerts -servername TPP_ADDRESS -connect TPP_ADDRESS:TPP_PORT | openssl x509 -outform pem -out chain.pem
+```
+
+Example:
+
+```
+echo | openssl s_client -showcerts -servername venafi.example.com -connect venafi.example.com:5008 | openssl x509 -outform pem -out chain.pem
+```
+
 ## Import queue
 After certificate is signed it saved to the import queue. Import is running any time you sign certificate, also you can manually start the import using command
 ```

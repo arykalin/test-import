@@ -12,6 +12,13 @@ ROLE_OPTIONS := generate_lease=true store_by_cn="true" store_pkey="true" store_b
 IMPORT_ROLE := import
 IMPORT_DOMAIN := import.example.com
 RANDOM_SITE_EXP := $$(head /dev/urandom | docker run --rm -i busybox tr -dc a-z0-9 | head -c 5 ; echo '')
+TRUST_BUNDLE := "/tmp/chain.pem"
+
+### Exporting variables for demo and tests
+.EXPORT_ALL_VARIABLES:
+VAULT_ADDR = http://127.0.0.1:8200
+#Must be set,otherwise cloud certificates will timeout
+VAULT_CLIENT_TIMEOUT = 180s
 
 fmt:
 	gofmt -w $(GOFMT_FILES)
@@ -56,7 +63,8 @@ import_config_write:
 		zone="$(TPPZONE)" \
 		$(ROLE_OPTIONS) \
 		allowed_domains=$(IMPORT_DOMAIN) \
-		allow_subdomains=true
+		allow_subdomains=true \
+		trust_bundle_file=$(TRUST_BUNDLE)
 
 import_config_read:
 	vault read $(MOUNT)/roles/$(IMPORT_ROLE)
