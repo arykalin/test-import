@@ -349,7 +349,12 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		//Running import queue in background
 		//TODO: Need to synchronize backrounds task to not dublicate them.
 		ctx = context.Background()
-		go b.importToTPP(data, ctx, req)
+		go func() {
+			for {
+				go b.importToTPP(data, ctx, req)
+				time.Sleep(30 * time.Second)
+			}
+		}()
 
 	}
 

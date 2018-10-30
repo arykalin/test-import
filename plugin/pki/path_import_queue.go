@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
+	"sync"
+	"time"
 )
 
 // This returns the list of queued for import to TPP certificates
@@ -65,7 +67,12 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 	log.Printf("Using role: %s", roleName)
 	//Running import queue in background
 	ctx = context.Background()
-	go b.importToTPP(data, ctx, req)
+	go func() {
+		for {
+			go b.importToTPP(data, ctx, req)
+			time.Sleep(30 * time.Second)
+		}
+	}()
 
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
@@ -76,13 +83,16 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 }
 
 func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
-	//Make a loop through queue list here, remove sn.
+	var mutex = &sync.Mutex{}
+	//TODO: Need to run goroutine from here, also add block chanel so only one import routine can run at once
+	mutex.Lock()
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		log.Printf("Could not get queue list: %s", err)
 	}
 	log.Printf("Queue list is:\n %s", entries)
 	for i, sn := range entries {
+		//TODO: try to start every import entry on goroutine
 		log.Printf("Trying to import certificate with SN %s at pos %d", sn, i)
 		cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
 		log.Println(cl)
@@ -113,7 +123,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 				continue
 			}
 			log.Printf("Certificate imported:\n %s", pp(importResp))
-			log.Printf("Removing certificate from impoer queue")
+			log.Printf("Removing certificate from import queue")
 			err = req.Storage.Delete(ctx, "import-queue/"+data.Get("role").(string)+"/"+sn)
 			if err != nil {
 				log.Printf("Could not delete sn from queue: %s", err)
@@ -128,6 +138,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 			}
 		}
 	}
+	mutex.Unlock()
 }
 
 const pathImportQueueSyn = `
