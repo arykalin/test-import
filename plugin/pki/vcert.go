@@ -10,13 +10,7 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 	"io/ioutil"
 	"log"
-	"sync"
 )
-
-type QueueEntry struct {
-	QueueEntryMutex *sync.Mutex
-	QueueEntry      string
-}
 
 func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
 	endpoint.Connector, error) {

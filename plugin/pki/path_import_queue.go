@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
-	"sync"
 	"time"
 )
 
@@ -83,22 +82,21 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 }
 
 func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
-	var mutex = &sync.Mutex{}
-	//TODO: Need to run goroutine from here, also add block chanel so only one import routine can run at once
-	mutex.Lock()
-	defer mutex.Unlock()
+	log.Println("!!!!Checking import lock!!!!")
+	b.importQueue.Lock()
+	defer b.importQueue.Unlock()
+	log.Println("!!!!Starting new import routine!!!!")
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
 		log.Printf("Could not get queue list: %s", err)
 	}
 	log.Printf("Queue list is:\n %s", entries)
-	//entriesChan := make(chan string, len(entries))
-	//TODO: try to start every import entry on goroutine
-	wg := new(sync.WaitGroup)
-	for i, sn := range entries {
-		go func() {
-			wg.Add(1)
-			defer wg.Done()
+	for {
+		/*TODO: it will be good to import every new entry in new vcert client. For it you will need to create new client object here
+		and start it in go routine
+		*/
+		for i, sn := range entries {
+
 			log.Printf("Trying to import certificate with SN %s at pos %d", sn, i)
 			cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
 			log.Println(cl)
@@ -143,10 +141,12 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 					}
 				}
 			}
-		}()
 
+			//There will be no new entries, need to find a way to refresh them. Try recursion here
+		}
+		log.Println("Waiting for new entries")
+		time.Sleep(15 * time.Second)
 	}
-	wg.Wait()
 }
 
 const pathImportQueueSyn = `

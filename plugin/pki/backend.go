@@ -108,6 +108,8 @@ type backend struct {
 	crlLifetime       time.Duration
 	revokeStorageLock sync.RWMutex
 	tidyCASGuard      *uint32
+	//Mutex for import queue
+	importQueue sync.Mutex
 }
 
 const backendHelp = `
