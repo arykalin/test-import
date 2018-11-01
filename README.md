@@ -8,7 +8,7 @@ This is the original Hashicorp Vault PKI secrets engine (https://www.vaultprojec
 
 1. Download the plugin binary from releases page and make it executable
     ```
-    curl -L -o bin/venafi-pki-import https://github.com/arykalin/test-import/releases/download/0.0.1/venafi-pki-import
+    curl -L -o bin/venafi-pki-import https://github.com/arykalin/test-import/releases/download/0.0.5/venafi-pki-import
     chmod +x bin/venafi-pki-import
     ```
 
