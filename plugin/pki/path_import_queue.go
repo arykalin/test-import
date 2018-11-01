@@ -66,12 +66,8 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 	log.Printf("Using role: %s", roleName)
 	//Running import queue in background
 	ctx = context.Background()
-	go func() {
-		for {
-			go b.importToTPP(data, ctx, req)
-			time.Sleep(30 * time.Second)
-		}
-	}()
+	go b.importToTPP(data, ctx, req)
+	time.Sleep(30 * time.Second)
 
 	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
 	if err != nil {
@@ -85,21 +81,41 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 	log.Println("!!!!Checking import lock!!!!")
 	b.importQueue.Lock()
 	defer b.importQueue.Unlock()
+
+	/*
+		Variant with aatomic package, in this case if import is locked routine will exit and won't wait for next unlock
+		Problem with atomic is that it's not recommended and may be unclear.
+	*/
+	//if !atomic.CompareAndSwapUint32(&b.importQueueLocker, 0, 1) {
+	//	log.Println("!!!!Locker is locked")
+	//	return
+	//}
+	//defer atomic.StoreUint32(&b.importQueueLocker, 0)
+
 	log.Println("!!!!Starting new import routine!!!!")
 	for {
-		entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
+		roleName := data.Get("role").(string)
+		entries, err := req.Storage.List(ctx, "import-queue/"+roleName+"/")
 		if err != nil {
 			log.Printf("Could not get queue list: %s", err)
-			continue
+			return
 		}
 		log.Printf("Queue list is:\n %s", entries)
-		/*TODO: it will be good to import every new entry in new vcert client. For it you will need to create new client object here
-		and start it in go routine
-		*/
+
+		role, err := b.getRole(ctx, req.Storage, roleName)
+		if err != nil {
+			log.Printf("Error getting role %v: %s", role, err)
+			return
+		}
+		if role == nil {
+			log.Printf("Unknown role %v", role)
+			return
+		}
+
 		for i, sn := range entries {
 
 			log.Printf("Trying to import certificate with SN %s at pos %d", sn, i)
-			cl, err := b.ClientVenafi(ctx, req.Storage, data, req, data.Get("role").(string))
+			cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 			log.Println(cl)
 			if err != nil {
 				log.Printf("Could not create venafi client: %s", err)
@@ -145,8 +161,8 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 
 			//There will be no new entries, need to find a way to refresh them. Try recursion here
 		}
-		log.Println("Waiting for new entries")
-		time.Sleep(15 * time.Second)
+		log.Println("Waiting for next turn")
+		time.Sleep(time.Duration(role.TPPImportTimeout) * time.Second)
 	}
 	log.Println("!!!!Import stopped")
 	return

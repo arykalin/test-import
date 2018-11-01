@@ -315,6 +315,11 @@ Example for Venafi Cloud: Default`,
 Example:
   trust_bundle_file = "/full/path/to/chain.pem""`,
 			},
+			"tpp_import_timeout": &framework.FieldSchema{
+				Type:        framework.TypeInt,
+				Default:     15,
+				Description: `Timeout in second to rerun import queue`,
+			},
 		},
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -523,12 +528,13 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		PolicyIdentifiers:             data.Get("policy_identifiers").([]string),
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		//Role options added for Venafi Platform import
-		TPPURL:          data.Get("tpp_url").(string),
-		Zone:            data.Get("zone").(string),
-		TPPPassword:     data.Get("tpp_password").(string),
-		TPPUser:         data.Get("tpp_user").(string),
-		TPPImport:       data.Get("tpp_import").(bool),
-		TrustBundleFile: data.Get("trust_bundle_file").(string),
+		TPPURL:           data.Get("tpp_url").(string),
+		Zone:             data.Get("zone").(string),
+		TPPPassword:      data.Get("tpp_password").(string),
+		TPPUser:          data.Get("tpp_user").(string),
+		TPPImport:        data.Get("tpp_import").(bool),
+		TrustBundleFile:  data.Get("trust_bundle_file").(string),
+		TPPImportTimeout: data.Get("tpp_import_timeout").(int),
 	}
 
 	otherSANs := data.Get("allowed_other_sans").([]string)
@@ -720,12 +726,13 @@ type roleEntry struct {
 	ExtKeyUsageOIDs               []string      `json:"ext_key_usage_oids" mapstructure:"ext_key_usage_oids"`
 	BasicConstraintsValidForNonCA bool          `json:"basic_constraints_valid_for_non_ca" mapstructure:"basic_constraints_valid_for_non_ca"`
 	//Role options added for Venafi Platform import
-	TPPURL          string `json:"tpp_url"`
-	Zone            string `json:"zone"`
-	TPPPassword     string `json:"tpp_password"`
-	TPPUser         string `json:"tpp_user"`
-	TPPImport       bool   `json:"tpp_import"`
-	TrustBundleFile string `json:"trust_bundle_file"`
+	TPPURL           string `json:"tpp_url"`
+	Zone             string `json:"zone"`
+	TPPPassword      string `json:"tpp_password"`
+	TPPUser          string `json:"tpp_user"`
+	TPPImport        bool   `json:"tpp_import"`
+	TrustBundleFile  string `json:"trust_bundle_file"`
+	TPPImportTimeout int    `json:"tpp_import_timeout"`
 
 	// Used internally for signing intermediates
 	AllowExpirationPastCA bool
@@ -770,12 +777,13 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"policy_identifiers":                 r.PolicyIdentifiers,
 		"basic_constraints_valid_for_non_ca": r.BasicConstraintsValidForNonCA,
 		//Role options added for Venafi Platform import
-		"tpp_url":           r.TPPURL,
-		"zone":              r.Zone,
-		"tpp_password":      r.TPPPassword,
-		"tpp_user":          r.TPPUser,
-		"tpp_import":        r.TPPImport,
-		"trust_bundle_file": r.TrustBundleFile,
+		"tpp_url":            r.TPPURL,
+		"zone":               r.Zone,
+		"tpp_password":       r.TPPPassword,
+		"tpp_user":           r.TPPUser,
+		"tpp_import":         r.TPPImport,
+		"trust_bundle_file":  r.TrustBundleFile,
+		"tpp_import_timeout": r.TPPImportTimeout,
 	}
 	if r.MaxPathLength != nil {
 		responseData["max_path_length"] = r.MaxPathLength
