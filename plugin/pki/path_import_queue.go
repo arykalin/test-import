@@ -86,12 +86,13 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 	b.importQueue.Lock()
 	defer b.importQueue.Unlock()
 	log.Println("!!!!Starting new import routine!!!!")
-	entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
-	if err != nil {
-		log.Printf("Could not get queue list: %s", err)
-	}
-	log.Printf("Queue list is:\n %s", entries)
 	for {
+		entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
+		if err != nil {
+			log.Printf("Could not get queue list: %s", err)
+			continue
+		}
+		log.Printf("Queue list is:\n %s", entries)
 		/*TODO: it will be good to import every new entry in new vcert client. For it you will need to create new client object here
 		and start it in go routine
 		*/
@@ -124,7 +125,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 				importResp, err := cl.ImportCertificate(importReq)
 				if err != nil {
 					log.Printf("could not import certificate: %s", err)
-					return
+					continue
 				}
 				log.Printf("Certificate imported:\n %s", pp(importResp))
 				log.Printf("Removing certificate from import queue")
@@ -147,6 +148,8 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 		log.Println("Waiting for new entries")
 		time.Sleep(15 * time.Second)
 	}
+	log.Println("!!!!Import stopped")
+	return
 }
 
 const pathImportQueueSyn = `
