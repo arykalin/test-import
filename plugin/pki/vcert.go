@@ -7,12 +7,11 @@ import (
 	"github.com/Venafi/vcert"
 	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/logical/framework"
 	"io/ioutil"
 	"log"
 )
 
-func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
+func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, req *logical.Request, roleName string) (
 	endpoint.Connector, error) {
 	log.Printf("Using role: %s", roleName)
 	if roleName == "" {
