@@ -90,14 +90,6 @@ func Backend(conf *logical.BackendConfig) *backend {
 	b.tidyCASGuard = new(uint32)
 	b.storage = conf.StorageView
 
-	////Import queue running
-	//go func() {
-	//	for {
-	//		bundleEntry, err := b.storage.Get(context.Background(), "roles/import")
-	//		log.Println("Here will be import queue", bundleEntry, err)
-	//		time.Sleep(2 * time.Second)
-	//	}
-	//}()
 	return &b
 }
 

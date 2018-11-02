@@ -81,29 +81,30 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
 
 	var err error
+	var importLocked bool
+
 	roleName := data.Get("role").(string)
 	role, err := b.getRole(ctx, req.Storage, roleName)
 	if err != nil {
 		log.Printf("Error getting role %v: %s", role, err)
 		return
 	}
+
 	if role == nil {
 		log.Printf("Unknown role %v", role)
 		return
 	}
 
-	log.Printf("!!!!Checking import lock for role %s!!!!\n", roleName)
-	log.Printf("Locking import mutex on backend to safely change data on role import lock\n")
+	log.Printf("Locking import mutex on backend to safely change data for import lock on role %s\n", roleName)
 	b.importQueue.Lock()
 
-	log.Println("Getting import lock")
+	log.Printf("Getting import lock for role %s", roleName)
 	importLockEntry, err := req.Storage.Get(ctx, "import-queue/"+roleName+"/importLocked")
 	if err != nil {
 		log.Printf("Unable to get lock import for role %s:\n %s\n", roleName, err)
 		return
 	}
 
-	var importLocked bool
 	if importLockEntry == nil || importLockEntry.Value == nil || len(importLockEntry.Value) == 0 {
 		log.Println("Role lock is empty, assuming it is false")
 		importLocked = false

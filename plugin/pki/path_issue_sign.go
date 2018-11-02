@@ -346,8 +346,8 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 			log.Printf("Unable to store certificate in import queue: %s", err)
 		}
 		log.Printf("Running certificates import from queue")
-		//Running import queue in background
-		//TODO: Need to synchronize backrounds task to not dublicate them.
+
+		//Running venafi import queue in background
 		ctx = context.Background()
 		go b.importToTPP(data, ctx, req)
 

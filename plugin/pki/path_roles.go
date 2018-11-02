@@ -594,6 +594,11 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
+	//TODO: start import routin from here. It will be mostly the same as init
+	//Running venafi import queue in background
+	//ctx = context.Background()
+	//go b.importToTPP(data, ctx, req)
+
 	return nil, nil
 }
 
