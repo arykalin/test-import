@@ -65,7 +65,7 @@ import_config_write:
 		allowed_domains=$(IMPORT_DOMAIN) \
 		allow_subdomains=true \
 		trust_bundle_file=$(TRUST_BUNDLE) \
-		tpp_import_timeout=1
+		tpp_import_timeout=15
 
 import_config_read:
 	vault read $(MOUNT)/roles/$(IMPORT_ROLE)

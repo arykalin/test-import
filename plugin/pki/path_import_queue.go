@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -78,23 +79,89 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 }
 
 func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, req *logical.Request) {
-	log.Println("!!!!Checking import lock!!!!")
+
+	var err error
+	roleName := data.Get("role").(string)
+	role, err := b.getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		log.Printf("Error getting role %v: %s", role, err)
+		return
+	}
+	if role == nil {
+		log.Printf("Unknown role %v", role)
+		return
+	}
+
+	log.Printf("!!!!Checking import lock for role %s!!!!\n", roleName)
+	log.Printf("Locking import mutex on backend to safely change data on role import lock\n")
 	b.importQueue.Lock()
-	defer b.importQueue.Unlock()
+
+	log.Println("Getting import lock")
+	importLockEntry, err := req.Storage.Get(ctx, "import-queue/"+roleName+"/importLocked")
+	if err != nil {
+		log.Printf("Unable to get lock import for role %s:\n %s\n", roleName, err)
+		return
+	}
+
+	var importLocked bool
+	if importLockEntry == nil || importLockEntry.Value == nil || len(importLockEntry.Value) == 0 {
+		log.Println("Role lock is empty, assuming it is false")
+		importLocked = false
+	} else {
+		log.Printf("Got from storage %s", string(importLockEntry.Value))
+		il := string(importLockEntry.Value)
+		log.Printf("Parsing %s to bool", il)
+		importLocked, err = strconv.ParseBool(il)
+		if err != nil {
+			log.Printf("Unable to parse lock import %s to bool for role %s:\n %s\n", il, roleName, err)
+			return
+		}
+	}
+
+	if importLocked {
+		log.Printf("Import queue for role %s is locked. Exiting", roleName)
+		return
+	}
+
+	//Locking import for a role
+	err = req.Storage.Put(ctx, &logical.StorageEntry{
+		Key:   "import-queue/" + roleName + "/importLocked",
+		Value: []byte("true"),
+	})
+	if err != nil {
+		log.Printf("Unable to lock import queue: %s\n", err)
+		return
+	}
+	b.importQueue.Unlock()
+
+	//Unlock role import on exit
+	defer func() {
+		err = req.Storage.Put(ctx, &logical.StorageEntry{
+			Key:   "import-queue/" + roleName + "/importLocked",
+			Value: []byte("false"),
+		})
+	}()
 
 	/*
-		Variant with aatomic package, in this case if import is locked routine will exit and won't wait for next unlock
+		Variant with atomic package lock instead of mutex, in this case if import is locked routine will exit and won't wait for next unlock
 		Problem with atomic is that it's not recommended and may be unclear.
 	*/
-	//if !atomic.CompareAndSwapUint32(&b.importQueueLocker, 0, 1) {
-	//	log.Println("!!!!Locker is locked")
-	//	return
-	//}
-	//defer atomic.StoreUint32(&b.importQueueLocker, 0)
+	/*
+		if !atomic.CompareAndSwapUint32(&b.importQueueLocker, 0, 1) {
+			log.Println("!!!!Locker is locked")
+			return
+		}
+		defer atomic.StoreUint32(&b.importQueueLocker, 0)
+		//
+		if !atomic.CompareAndSwapUint32(role.importQueueLocker, 0, 1) {
+			log.Println("!!!!Locker is locked")
+			return
+		}
+		defer atomic.StoreUint32(role.importQueueLocker, 0)
+	*/
 
 	log.Println("!!!!Starting new import routine!!!!")
 	for {
-		roleName := data.Get("role").(string)
 		entries, err := req.Storage.List(ctx, "import-queue/"+roleName+"/")
 		if err != nil {
 			log.Printf("Could not get queue list: %s", err)
@@ -102,7 +169,8 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 		}
 		log.Printf("Queue list is:\n %s", entries)
 
-		role, err := b.getRole(ctx, req.Storage, roleName)
+		//Update role since it's settings may be changed
+		role, err = b.getRole(ctx, req.Storage, roleName)
 		if err != nil {
 			log.Printf("Error getting role %v: %s", role, err)
 			return
@@ -120,7 +188,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 			if err != nil {
 				log.Printf("Could not create venafi client: %s", err)
 			} else {
-				certEntry, err := req.Storage.Get(ctx, "import-queue/"+data.Get("role").(string)+"/"+sn)
+				certEntry, err := req.Storage.Get(ctx, "import-queue/"+roleName+"/"+sn)
 				if err != nil {
 					log.Printf("Could not get certificate from import-queue/%s: %s", sn, err)
 				}
@@ -145,12 +213,12 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 				}
 				log.Printf("Certificate imported:\n %s", pp(importResp))
 				log.Printf("Removing certificate from import queue")
-				err = req.Storage.Delete(ctx, "import-queue/"+data.Get("role").(string)+"/"+sn)
+				err = req.Storage.Delete(ctx, "import-queue/"+roleName+"/"+sn)
 				if err != nil {
 					log.Printf("Could not delete sn from queue: %s", err)
 				} else {
 					log.Printf("Cedrtificate with SN %s removed from queue", sn)
-					entries, err := req.Storage.List(ctx, "import-queue/"+data.Get("role").(string)+"/")
+					entries, err := req.Storage.List(ctx, "import-queue/"+roleName+"/")
 					if err != nil {
 						log.Printf("Could not get queue list: %s", err)
 					} else {
