@@ -95,11 +95,13 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 		return
 	}
 
-	log.Printf("Locking import mutex on backend to safely change data for import lock on role %s\n", roleName)
+	lockPath := "import-queue-lock/" + roleName
+
+	log.Printf("Locking import mutex on backend to safely change data for import lock on path %s\n", lockPath)
 	b.importQueue.Lock()
 
 	log.Printf("Getting import lock for role %s", roleName)
-	importLockEntry, err := req.Storage.Get(ctx, "import-queue/"+roleName+"/importLocked")
+	importLockEntry, err := req.Storage.Get(ctx, lockPath)
 	if err != nil {
 		log.Printf("Unable to get lock import for role %s:\n %s\n", roleName, err)
 		return
@@ -126,7 +128,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 
 	//Locking import for a role
 	err = req.Storage.Put(ctx, &logical.StorageEntry{
-		Key:   "import-queue/" + roleName + "/importLocked",
+		Key:   lockPath,
 		Value: []byte("true"),
 	})
 	if err != nil {
@@ -138,7 +140,7 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 	//Unlock role import on exit
 	defer func() {
 		err = req.Storage.Put(ctx, &logical.StorageEntry{
-			Key:   "import-queue/" + roleName + "/importLocked",
+			Key:   "import-queue-lock/" + roleName + "/importLocked",
 			Value: []byte("false"),
 		})
 	}()
@@ -185,7 +187,6 @@ func (b *backend) importToTPP(data *framework.FieldData, ctx context.Context, re
 
 			log.Printf("Trying to import certificate with SN %s at pos %d", sn, i)
 			cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
-			log.Println(cl)
 			if err != nil {
 				log.Printf("Could not create venafi client: %s", err)
 			} else {
