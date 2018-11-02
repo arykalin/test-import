@@ -450,8 +450,16 @@ func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*ro
 }
 
 func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	//TODO: cleanup queue list on role deletion
-	err := req.Storage.Delete(ctx, "role/"+data.Get("name").(string))
+
+	roleName := data.Get("name").(string)
+	role, err := b.getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		return nil, err
+	}
+	if role.TPPImport {
+		b.cleanupImportToTPP(roleName, ctx, req)
+	}
+	err = req.Storage.Delete(ctx, "role/"+roleName)
 	if err != nil {
 		return nil, err
 	}
@@ -595,10 +603,11 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	//TODO: start import routin from here. It will be mostly the same as init
 	//Running venafi import queue in background
-	ctx = context.Background()
-	go b.importToTPP(name, ctx, req)
+	if entry.TPPImport {
+		ctx = context.Background()
+		go b.importToTPP(name, ctx, req)
+	}
 
 	return nil, nil
 }

@@ -19,6 +19,8 @@ func pathImportQueue(b *backend) *framework.Path {
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation: b.pathUpdateImportQueue,
+			//TODO: add delete operation to stop import queue and delete it
+
 		},
 
 		HelpSynopsis:    pathImportQueueSyn,
@@ -197,7 +199,7 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 				log.Printf("Removing certificate from import path %s", importPath+sn)
 				err = req.Storage.Delete(ctx, importPath+sn)
 				if err != nil {
-					log.Printf("Could not delete sn from queue: %s", err)
+					log.Printf("Could not delete %s from queue: %s", importPath+sn, err)
 				} else {
 					log.Printf("Cedrtificate with SN %s removed from queue", sn)
 					entries, err := req.Storage.List(ctx, importPath)
@@ -216,6 +218,21 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 	}
 	log.Println("!!!!Import stopped")
 	return
+}
+
+func (b *backend) cleanupImportToTPP(roleName string, ctx context.Context, req *logical.Request) {
+
+	importPath := "import-queue/" + roleName + "/"
+	entries, err := req.Storage.List(ctx, importPath)
+	for _, sn := range entries {
+		err = req.Storage.Delete(ctx, importPath+sn)
+		if err != nil {
+			log.Printf("Could not delete %s from queue: %s", importPath+sn, err)
+		} else {
+			log.Printf("Deleted %s from queue", importPath+sn)
+		}
+	}
+
 }
 
 const pathImportQueueSyn = `
