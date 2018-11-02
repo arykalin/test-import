@@ -83,6 +83,7 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 	var importLocked bool
 
 	lockPath := "import-queue-lock/" + roleName
+	importPath := "import-queue/" + roleName + "/"
 
 	log.Printf("Locking import mutex on backend to safely change data for import lock\n")
 	b.importQueue.Lock()
@@ -144,21 +145,21 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 
 	log.Println("!!!!Starting new import routine!!!!")
 	for {
-		entries, err := req.Storage.List(ctx, "import-queue/"+roleName+"/")
+		entries, err := req.Storage.List(ctx, importPath)
 		if err != nil {
-			log.Printf("Could not get queue list: %s", err)
+			log.Printf("Could not get queue list from path %s: %s", err, importPath)
 			return
 		}
-		log.Printf("Queue list is:\n %s", entries)
+		log.Printf("Queue list on path %s is: %s", importPath, entries)
 
 		//Update role since it's settings may be changed
 		role, err := b.getRole(ctx, req.Storage, roleName)
 		if err != nil {
-			log.Printf("Error getting role %v: %s", role, err)
+			log.Printf("Error getting role %v: %s\n. Exiting", role, err)
 			return
 		}
 		if role == nil {
-			log.Printf("Unknown role %v", role)
+			log.Printf("Unknown role %v\n. Exiting for path %s", role, importPath)
 			return
 		}
 
@@ -169,9 +170,9 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 			if err != nil {
 				log.Printf("Could not create venafi client: %s", err)
 			} else {
-				certEntry, err := req.Storage.Get(ctx, "import-queue/"+roleName+"/"+sn)
+				certEntry, err := req.Storage.Get(ctx, importPath+sn)
 				if err != nil {
-					log.Printf("Could not get certificate from import-queue/%s: %s", sn, err)
+					log.Printf("Could not get certificate from %s: %s", importPath+sn, err)
 				}
 				block := pem.Block{
 					Type:  "CERTIFICATE",
@@ -193,17 +194,17 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 					continue
 				}
 				log.Printf("Certificate imported:\n %s", pp(importResp))
-				log.Printf("Removing certificate from import queue")
-				err = req.Storage.Delete(ctx, "import-queue/"+roleName+"/"+sn)
+				log.Printf("Removing certificate from import path %s", importPath+sn)
+				err = req.Storage.Delete(ctx, importPath+sn)
 				if err != nil {
 					log.Printf("Could not delete sn from queue: %s", err)
 				} else {
 					log.Printf("Cedrtificate with SN %s removed from queue", sn)
-					entries, err := req.Storage.List(ctx, "import-queue/"+roleName+"/")
+					entries, err := req.Storage.List(ctx, importPath)
 					if err != nil {
 						log.Printf("Could not get queue list: %s", err)
 					} else {
-						log.Printf("Queue is:\n %s", entries)
+						log.Printf("Queue for path %s is:\n %s", importPath, entries)
 					}
 				}
 			}

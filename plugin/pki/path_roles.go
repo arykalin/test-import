@@ -450,6 +450,7 @@ func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*ro
 }
 
 func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	//TODO: cleanup queue list on role deletion
 	err := req.Storage.Delete(ctx, "role/"+data.Get("name").(string))
 	if err != nil {
 		return nil, err
