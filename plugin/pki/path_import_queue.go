@@ -82,31 +82,20 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 	var err error
 	var importLocked bool
 
-	//roleName := data.Get("role").(string)
-	//role, err := b.getRole(ctx, req.Storage, roleName)
-	//if err != nil {
-	//	log.Printf("Error getting role %v: %s", role, err)
-	//	return
-	//}
-	//
-	//if role == nil {
-	//	log.Printf("Unknown role %v", role)
-	//	return
-	//}
-
 	lockPath := "import-queue-lock/" + roleName
 
 	log.Printf("Locking import mutex on backend to safely change data for import lock\n")
 	b.importQueue.Lock()
-	defer func() {
+	unlock := func() {
 		log.Printf("Unlocking import mutex on backend\n")
 		b.importQueue.Unlock()
-	}()
+	}
 
 	log.Printf("Getting import lock for path %s", lockPath)
 	importLockEntry, err := req.Storage.Get(ctx, lockPath)
 	if err != nil {
 		log.Printf("Unable to get lock import for role %s:\n %s\n", roleName, err)
+		unlock()
 		return
 	}
 
@@ -120,12 +109,14 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 		importLocked, err = strconv.ParseBool(il)
 		if err != nil {
 			log.Printf("Unable to parse lock import %s to bool for role %s:\n %s\n", il, roleName, err)
+			unlock()
 			return
 		}
 	}
 
 	if importLocked {
 		log.Printf("Import queue for role %s is locked. Exiting", roleName)
+		unlock()
 		return
 	}
 
@@ -136,11 +127,11 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 	})
 	if err != nil {
 		log.Printf("Unable to lock import queue: %s\n", err)
+		unlock()
 		return
 	}
 
-	log.Printf("Unlocking import mutex on backend\n")
-	b.importQueue.Unlock()
+	unlock()
 
 	//Unlock role import on exit
 	defer func() {
@@ -150,24 +141,6 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 			Value: []byte("false"),
 		})
 	}()
-
-	/*
-		Variant with atomic package lock instead of mutex, in this case if import is locked routine will exit and won't wait for next unlock
-		Problem with atomic is that it's not recommended and may be unclear.
-	*/
-	/*
-		if !atomic.CompareAndSwapUint32(&b.importQueueLocker, 0, 1) {
-			log.Println("!!!!Locker is locked")
-			return
-		}
-		defer atomic.StoreUint32(&b.importQueueLocker, 0)
-		//
-		if !atomic.CompareAndSwapUint32(role.importQueueLocker, 0, 1) {
-			log.Println("!!!!Locker is locked")
-			return
-		}
-		defer atomic.StoreUint32(role.importQueueLocker, 0)
-	*/
 
 	log.Println("!!!!Starting new import routine!!!!")
 	for {
