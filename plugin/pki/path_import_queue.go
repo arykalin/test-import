@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vcert/pkg/certificate"
@@ -180,11 +181,20 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 					Type:  "CERTIFICATE",
 					Bytes: certEntry.Value,
 				}
+
+				Certificate, err := x509.ParseCertificate(certEntry.Value)
+				if err != nil {
+					log.Printf("Could not get certificate from entry %s: %s", importPath+sn, err)
+				}
+				//TODO: here we should check for existing CN and set it to DNS or throw error
+				cn := Certificate.Subject.CommonName
+
 				certString := string(pem.EncodeToMemory(&block))
-				log.Printf("Importing cert: %s", certString)
+				log.Printf("Importing cert to %s:\n %s", cn, certString)
+
 				importReq := &certificate.ImportRequest{
 					// if PolicyDN is empty, it is taken from cfg.Zone
-					ObjectName:      sn,
+					ObjectName:      cn,
 					CertificateData: certString,
 					PrivateKeyData:  "",
 					Password:        "",
