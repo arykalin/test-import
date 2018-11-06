@@ -211,7 +211,7 @@ func (b *backend) importToTPP(roleName string, ctx context.Context, req *logical
 				if err != nil {
 					log.Printf("Could not delete %s from queue: %s", importPath+sn, err)
 				} else {
-					log.Printf("Cedrtificate with SN %s removed from queue", sn)
+					log.Printf("Certificate with SN %s removed from queue", sn)
 					entries, err := req.Storage.List(ctx, importPath)
 					if err != nil {
 						log.Printf("Could not get queue list: %s", err)
